@@ -97,52 +97,48 @@ const success = chalk.keyword("green");
             });
 
             const response = await page.evaluate(() => {
-                const selectors = {
-                    "Name": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > a > div > h2`,
-                    "Profession": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > div.u-grey_3-text > div.u-d-flex > span > h3 > span`,
-                    "Overall Experience": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > div.u-grey_3-text > div.uv2-spacer--xs-top > div`,
-                    "Consultation Fee": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > div.uv2-spacer--sm-top > div.uv2-spacer--xs-top > span:nth-child(1) > span`,
-                    "Location": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > div.uv2-spacer--sm-top > div.u-bold.u-d-inlineblock.u-valign--middle > a > span.u-t-capitalize`,
-                    "profileLink": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > a`
-                };
+                // const selectors = {
+                //     "Name": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > a > div > h2`,
+                //     "Profession": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > div.u-grey_3-text > div.u-d-flex > span > h3 > span`,
+                //     "Overall Experience": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > div.u-grey_3-text > div.uv2-spacer--xs-top > div`,
+                //     "Consultation Fee": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > div.uv2-spacer--sm-top > div.uv2-spacer--xs-top > span:nth-child(1) > span`,
+                //     "Location": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > div.uv2-spacer--sm-top > div.u-bold.u-d-inlineblock.u-valign--middle > a > span.u-t-capitalize`,
+                //     "profileLink": `#container > div:nth-child(3) > div > div.pure-g.null > div.pure-u-17-24.c-listing__left > div > div:nth-child(2) > div > div.listing-doctor-card > div.u-d-flex > div.info-section > a`
+                // };
 
-                const obj = {};
-                for (const [property, selector] of Object.entries(selectors)) {
-                    switch(property){
-                        case "Name":
-                        case "Profession":
-                        case "Location":
-                        case "Consultation Fee":
-                            obj[property] = [...document.querySelectorAll(selector)].map(node => node.innerText.replaceAll(",", " ")); //
-                            break;
-                        case "Overall Experience":
-                            obj[property] = [...document.querySelectorAll(selector)].map(node => node.innerText.split(" ")[0]);
-                            break;
-                        case "profileLink":
-                            obj[property] = [...document.querySelectorAll(selector)].map(node => node.href);
-                            break;
-                    }
-                }
+                const list = document.querySelector("[data-qa-id=doctor_listing_cards]");
+                const cards = [...list.children];
 
-                return obj
+                const doctors = cards
+                .filter(card => card.querySelector('script')) // get valid cards
+                .map(card => {
+                    const script = card.querySelector('script');
+                    const info = JSON.parse(script.innerText);
+                    const experienceDiv = card.querySelector("[data-qa-id=doctor_experience]");
+                    const experience = experienceDiv ? experienceDiv.innerText.split(" ")[0] : "N/A";
+                    const doctor = {
+                        Name: info.name,
+                        Profession: info.medicalSpecialty,
+                        Experience: experience,
+                        Consultation_Fee: '₹' + info.priceRange,
+                        Location: info.address && info.address.addressRegion,
+                        profileLink: info.url
+                    };
+                    // console.log(doctor);
+                    return doctor;
+                })
+
+                // console.log({
+                //     doctors
+                // });
+
+                return doctors;
+
             });
 
-            const cols = Object.values(response);
-            const zipped = lodash.zip(...cols);
-            
-            for(const arr of zipped){
-                const obj = {
-                    "Name": arr[0],
-                    "Profession": arr[1],
-                    "Overall Experience": arr[2],
-                    "Consultation Fee": arr[3],
-                    "Location": arr[4],
-                    "profileLink": arr[5]
-                };
-                responses.push(obj);
-            };
+            // console.log(response);
 
-
+            responses.push(...response);
         }catch(err){
             error(`oops with ${url}`);
             console.log(err);
@@ -154,9 +150,10 @@ const success = chalk.keyword("green");
     
     const data =formatResponses(responses);
 
-    await fs.writeFileSync(path.join(__dirname, `data-${batch}.${Date.now()}.json`), JSON.stringify(responses)); // for reference 
-    await fs.writeFileSync(path.join(__dirname, `data-${batch}.${Date.now()}.csv`), data);
+    await fs.writeFileSync(path.join(__dirname,'data',`data-${batch}.${Date.now()}.json`), JSON.stringify(responses)); // for reference 
+    await fs.writeFileSync(path.join(__dirname,'data',`data-${batch}.${Date.now()}.csv`), data);
 
+    console.log("\n---end---\n");
     // close the browsers after 
     browser.close();
 
